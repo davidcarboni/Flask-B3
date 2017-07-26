@@ -41,7 +41,7 @@ There are three key steps to using flask_b3:
 This could be called from a Flask `before_request()` function, passing in `request.headers`.
 This will generate any needed identifiers (e.g. for a root span):
 
-    collect_request_headers(header_values)
+    collect_incoming_headers(headers)
 
 ### Access B3 values 
 
@@ -49,7 +49,7 @@ When you need to build log messages,
 this gets you a dict with keys that match the B3 header names 
 (`X-B3-TraceId`, `X-B3-ParentSpanId`, `X-B3-SpanId`, `X-B3-Sampled` and `X-B3-Flags`): 
 
-    b3_values()
+    values()
 
 ### Add headers to onward requests
 
@@ -58,7 +58,7 @@ you'll need to add B3 headers to the outgoing request.
 Pass in a dict of your headers to be updated with B3 headers.
 This will generate the right B3 values for a new span in the trace:
 
-    add_request_headers(header_values)
+    add_outgoing_headers(headers)
 
 And that's it. The aim is to make it clean and simple to read and propagate B3 headers.
 

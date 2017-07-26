@@ -1,69 +1,92 @@
 from flask import g
 from binascii import hexlify
 import os
+import logging
+
+log = logging.getLogger(__name__)
 
 debug = False
 
+b3_trace_id = 'X-B3-TraceId'
+b3_parent_span_id = 'X-B3-ParentSpanId'
+b3_span_id = 'X-B3-SpanId'
+b3_sampled = 'X-B3-Sampled'
+b3_flags = 'X-B3-Flags'
 
-def b3_values():
+
+def values():
     """Get the full set of B3 values.
     :return: A dict containing the values "X-B3-TraceId", "X-B3-ParentSpanId", "X-B3-SpanId", "X-B3-Sampled" and
     "X-B3-Flags" for the current span.
     """
     return {
-        'X-B3-TraceId': g.get('X-B3-TraceId'),
-        'X-B3-ParentSpanId': g.get('X-B3-ParentSpanId'),
-        'X-B3-SpanId': g.get('X-B3-SpanId'),
-        'X-B3-Sampled': g.get('X-B3-Sampled'),
-        'X-B3-Flags': g.get('X-B3-Flags'),
+        b3_trace_id: g.get(b3_trace_id),
+        b3_parent_span_id: g.get(b3_parent_span_id),
+        b3_span_id: g.get(b3_span_id),
+        b3_sampled: g.get(b3_sampled),
+        b3_flags: g.get(b3_flags),
     }
 
 
-def collect_request_headers(header_values):
+def collect_incoming_headers(headers):
     """Collects B3 headers and sets up values for this request as needed.
     The collected/computed values are stored on the application context g using the defined http header names as keys.
-    :param header_values: The request headers
+    :param headers: The request headers dict
     """
     global debug
 
+    trace_id = headers.get(b3_trace_id)
+    parent_span_id = headers.get(b3_parent_span_id)
+    span_id = headers.get(b3_span_id)
+    sampled = headers.get(b3_sampled)
+    flags = headers.get(b3_flags)
+
+    if not trace_id:
+        log.debug("Root span")
+    else:
+        log.debug("Span {span} in trace {trace}. Parent span is {parent}.".format(
+            span=span_id,
+            trace=trace_id,
+            parent=parent_span_id))
+
     # Collect (or generate) a trace ID
-    setattr(g, 'X-B3-TraceId', header_values.get('X-B3-TraceId') or _generate_identifier())
+    setattr(g, b3_trace_id, span_id or _generate_identifier())
 
     # Parent span, if present
-    setattr(g, 'X-B3-ParentSpanId', header_values.get('X-B3-ParentSpanId'))
+    setattr(g, b3_parent_span_id, parent_span_id)
 
     # Collect (or set) the span ID
-    setattr(g, 'X-B3-SpanId', header_values.get('X-B3-SpanId') or g.get('X-B3-TraceId'))
+    setattr(g, b3_span_id, span_id or trace_id)
 
     # Collect the "sampled" flag, if present
     # We'll propagate the sampled value unchanged if it's set.
-    # We're not currently recording traces so if it's present,
-    # follow the standard and propagate it, otherwise it's ok to leave it out, rather than set it to "0".
-    # This allows downstream services to make the decision if they want to.
-    setattr(g, 'X-B3-Sampled', header_values.get('X-B3-Sampled'))
+    # We're not currently recording traces to Zipkin, so if it's present, follow the standard and propagate it,
+    # otherwise it's better to leave it out, rather than make it "0".
+    # This allows downstream services to make a decision if they need to.
+    setattr(g, b3_sampled, sampled)
 
     # Set or update the debug setting
     # We'll set it to "1" if debug=True, otherwise we'll propagate it if present.
-    setattr(g, 'X-B3-Flags', "1" if debug else header_values.get('X-B3-Flags'))
+    setattr(g, b3_flags, "1" if debug else flags)
 
 
-def add_request_headers(header_values):
+def add_outgoing_headers(headers):
     """ Adds the required headers to the given header dict.
     For the specification, see: https://github.com/openzipkin/b3-propagation
-    :param header_values: The headers dict. Headers will be added to this as needed.
+    :param headers: The headers dict. Headers will be added to this as needed.
     """
-    b3 = b3_values()
+    b3 = values()
     # Propagate the trace ID
-    header_values['X-B3-TraceId'] = b3['X-B3-TraceId']
-    # New span for the outgoing request
-    header_values['X-B3-SpanId'] = _generate_identifier()
-    # Note the parent span as the current span
-    header_values['X-B3-ParentSpanId'] = b3['X-B3-SpanId']
-    # Propagate-if-set:
-    if b3['X-B3-Sampled']:
-        header_values['X-B3-Sampled'] = b3['X-B3-Sampled']
-    if b3['X-B3-Flags']:
-        header_values['X-B3-Flags'] = b3['X-B3-Flags']
+    headers[b3_trace_id] = b3[b3_trace_id]
+    # Start a new span for the outgoing request
+    headers[b3_span_id] = _generate_identifier()
+    # Set the current span as the parent span
+    headers[b3_parent_span_id] = b3[b3_span_id]
+    # Propagate-only-if-set:
+    if b3[b3_sampled]:
+        headers[b3_sampled] = b3[b3_sampled]
+    if b3[b3_flags]:
+        headers[b3_flags] = b3[b3_flags]
 
 
 def _generate_identifier():
@@ -74,4 +97,4 @@ def _generate_identifier():
     bit_length = 64
     byte_length = int(bit_length / 8)
     identifier = os.urandom(byte_length)
-    return hexlify(identifier).decode("ascii")
+    return hexlify(identifier).decode('ascii')
