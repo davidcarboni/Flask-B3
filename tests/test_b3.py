@@ -23,9 +23,8 @@ class TestB3(unittest.TestCase):
             values = b3.values()
 
             # Then
-            # A trace ID should have been genenated
+            # Both trace ID and span ID should have been genenated
             self.assertTrue(values[b3_trace_id])
-            # A span ID should have been generated
             self.assertTrue(values[b3_span_id])
             # The IDs should be 16 characters of hex
             self.assertTrue(re.match("[a-fA-F0-9]{16}", values[b3_trace_id]))
@@ -96,7 +95,8 @@ class TestB3(unittest.TestCase):
             b3.add_outgoing_headers(headers)
 
             # Then
-            # Sampled should not be set and should remain absent from onward request headers
+            # Sampled should not be set and should
+            # remain absent from onward request headers
             self.assertIsNone(values[b3_sampled])
             self.assertFalse(b3_sampled in headers)
 
