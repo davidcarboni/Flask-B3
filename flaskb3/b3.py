@@ -22,7 +22,12 @@ def values():
     """
     result = {}
     for header in b3_headers:
-        result[header] = g.get(header)
+        try:
+            result[header] = g.get(header)
+        except RuntimeError:
+            # We're probably working outside the Application Context at this point, likely on startup:
+            # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
+            result[header] = None
     return result
 
 
