@@ -25,11 +25,13 @@ def values():
     try:
         span = g.get("subspan") if "subspan" in g else g
         for header in b3_headers:
-                result[header] = span.get(header)
+            result[header] = span.get(header)
     except RuntimeError:
         # We're probably working outside the Application Context at this point, likely on startup:
         # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
-        result[header] = None
+        # We return a dict of empty values so the expected keys are present.
+        for header in b3_headers:
+            result[header] = None
 
     return result
 
