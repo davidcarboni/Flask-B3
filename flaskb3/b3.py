@@ -1,6 +1,5 @@
 from flask import g
 from binascii import hexlify
-from json import dumps
 import os
 import logging
 
@@ -23,6 +22,7 @@ def values():
     """
     result = {}
     try:
+        # Check if there's a sub-span in progress, otherwise use the main span:
         span = g.get("subspan") if "subspan" in g else g
         for header in b3_headers:
             result[header] = span.get(header)
@@ -81,8 +81,8 @@ def collect_incoming_headers(headers):
     _log.debug("Resolved B3 values: {values}".format(values=values()))
 
 
-def add_outgoing_headers(headers):
-    """ Adds the required headers to the given header dict.
+def add_subspan_headers(headers):
+    """ Adds the required sub-span headers to the given header dict.
     This is used when making a downstream service call.
     For the specification, see: https://github.com/openzipkin/b3-propagation
     :param headers: The headers dict. Headers will be added to this as needed.
@@ -127,7 +127,13 @@ def remove_subspan_headers():
     You should call this in e.g. a finally block when you have finished making a downstream service call.
     For the specification, see: https://github.com/openzipkin/b3-propagation
     """
-    g.pop("subspan", None)
+    try:
+        g.pop("subspan", None)
+        _log.debug("Returned to span: " + str(values()))
+    except RuntimeError:
+        # We're probably working outside the Application Context at this point, likely on startup:
+        # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
+        pass
 
 
 def _generate_identifier():
