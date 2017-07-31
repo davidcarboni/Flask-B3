@@ -1,5 +1,6 @@
 from flask import g
 from binascii import hexlify
+from json import dumps
 import os
 import logging
 
@@ -37,6 +38,7 @@ def collect_incoming_headers(headers):
     :param headers: The request headers dict
     """
     global debug
+    _log.debug("Received incoming headers: " + str(headers))
 
     trace_id = headers.get(b3_trace_id)
     parent_span_id = headers.get(b3_parent_span_id)
@@ -79,6 +81,8 @@ def add_outgoing_headers(headers):
     """ Adds the required headers to the given header dict.
     For the specification, see: https://github.com/openzipkin/b3-propagation
     :param headers: The headers dict. Headers will be added to this as needed.
+    :return: For convenience, the headers parameter is returned after being updated.
+    This allows you to pass the result of this function directly to e.g. requests.get(...).
     """
     b3 = values()
     # Propagate the trace ID
@@ -93,8 +97,10 @@ def add_outgoing_headers(headers):
     if b3[b3_flags]:
         headers[b3_flags] = b3[b3_flags]
 
-    _log.debug("Resolved B3 values: {b3_headers}".format(
+    _log.debug("B3 values for outgoing headers: {b3_headers}".format(
         b3_headers={k: v for k, v in headers.items() if k in b3_headers}))
+
+    return headers
 
 
 def _generate_identifier():
