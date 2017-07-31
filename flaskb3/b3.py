@@ -1,4 +1,4 @@
-from flask import g
+from flask import g, request
 from binascii import hexlify
 import os
 import logging
@@ -36,27 +36,22 @@ def values():
     return result
 
 
-def collect_incoming_headers(headers):
+def collect_incoming_headers(request_headers=None):
     """Collects B3 headers and sets up values for this request as needed.
     The collected/computed values are stored on the application context g using the defined http header names as keys.
+    :param request_headers: Incoming request headers can be passed explicitly.
+    If not passed, Flask request.headers will be used. This enables you to pass this function to Flask.before_request().
     :param headers: The request headers dict
     """
     global debug
-    _log.debug("Received incoming headers: " + str(headers))
+    headers = request_headers if request_headers is not None else request.headers
 
     trace_id = headers.get(b3_trace_id)
     parent_span_id = headers.get(b3_parent_span_id)
     span_id = headers.get(b3_span_id)
     sampled = headers.get(b3_sampled)
     flags = headers.get(b3_flags)
-
-    if not trace_id:
-        _log.debug("Root span")
-    else:
-        _log.debug("Span {span} in trace {trace}. Parent span is {parent}.".format(
-            span=span_id,
-            trace=trace_id,
-            parent=parent_span_id))
+    root_span = not trace_id
 
     # Collect (or generate) a trace ID
     setattr(g, b3_trace_id, trace_id or _generate_identifier())
@@ -78,7 +73,29 @@ def collect_incoming_headers(headers):
     # We'll set it to "1" if debug=True, otherwise we'll propagate it if present.
     setattr(g, b3_flags, "1" if debug else flags)
 
+    _log.debug("Incoming headers: " + str(headers))
+    if not trace_id:
+        _log.info("Root span")
+    else:
+        _log.info("Server receive: span {span} in trace {trace}. Parent span is {parent}.".format(
+            span=span_id,
+            trace=trace_id,
+            parent=parent_span_id,
+        ))
     _log.debug("Resolved B3 values: {values}".format(values=values()))
+
+
+def end_span():
+    """Logs the end of a span.
+    This function can be passed to Flask.after_request() if you'd like a log message to confirm the end of a span.
+    """
+    remove_subspan_headers()
+    span = values()
+    _log.info("Server send: span {span} in trace {trace}. Parent span is {parent}.".format(
+            span=span.get(b3_span_id),
+            trace=span.get(b3_trace_id),
+            parent=span.get(b3_parent_span_id),
+    ))
 
 
 def add_subspan_headers(headers):
@@ -128,8 +145,8 @@ def remove_subspan_headers():
     For the specification, see: https://github.com/openzipkin/b3-propagation
     """
     try:
-        g.pop("subspan", None)
-        _log.debug("Returned to span: " + str(values()))
+        if g.pop("subspan", None):
+            _log.info("Returned to span: " + str(values()))
     except RuntimeError:
         # We're probably working outside the Application Context at this point, likely on startup:
         # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
