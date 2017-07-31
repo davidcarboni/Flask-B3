@@ -22,13 +22,15 @@ def values():
     "X-B3-Flags" for the current span. NB some of the values are likely be None.
     """
     result = {}
-    for header in b3_headers:
-        try:
-            result[header] = g.get(header)
-        except RuntimeError:
-            # We're probably working outside the Application Context at this point, likely on startup:
-            # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
-            result[header] = None
+    try:
+        span = g.get("subspan") if "subspan" in g else g
+        for header in b3_headers:
+                result[header] = span.get(header)
+    except RuntimeError:
+        # We're probably working outside the Application Context at this point, likely on startup:
+        # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
+        result[header] = None
+
     return result
 
 
@@ -79,28 +81,51 @@ def collect_incoming_headers(headers):
 
 def add_outgoing_headers(headers):
     """ Adds the required headers to the given header dict.
+    This is used when making a downstream service call.
     For the specification, see: https://github.com/openzipkin/b3-propagation
     :param headers: The headers dict. Headers will be added to this as needed.
     :return: For convenience, the headers parameter is returned after being updated.
     This allows you to pass the result of this function directly to e.g. requests.get(...).
     """
     b3 = values()
-    # Propagate the trace ID
-    headers[b3_trace_id] = b3[b3_trace_id]
-    # Start a new span for the outgoing request
-    headers[b3_span_id] = _generate_identifier()
-    # Set the current span as the parent span
-    headers[b3_parent_span_id] = b3[b3_span_id]
-    # Propagate-only-if-set:
-    if b3[b3_sampled]:
-        headers[b3_sampled] = b3[b3_sampled]
-    if b3[b3_flags]:
-        headers[b3_flags] = b3[b3_flags]
+    g.subspan = {
+
+        # Propagate the trace ID
+        b3_trace_id: b3[b3_trace_id],
+
+        # Start a new span for the outgoing request
+        b3_span_id: _generate_identifier(),
+
+        # Set the current span as the parent span
+        b3_parent_span_id: b3[b3_span_id],
+
+        b3_sampled: b3[b3_sampled],
+        b3_flags: b3[b3_flags],
+    }
 
     _log.debug("B3 values for outgoing headers: {b3_headers}".format(
-        b3_headers={k: v for k, v in headers.items() if k in b3_headers}))
+        b3_headers=g.subspan))
+
+    # Update headers
+    headers[b3_trace_id] = g.subspan[b3_trace_id]
+    headers[b3_span_id] = g.subspan[b3_span_id]
+    headers[b3_parent_span_id] = g.subspan[b3_parent_span_id]
+
+    # Propagate only if set:
+    if g.subspan[b3_sampled]:
+        headers[b3_sampled] = g.subspan[b3_sampled]
+    if g.subspan[b3_flags]:
+        headers[b3_flags] = g.subspan[b3_flags]
 
     return headers
+
+
+def remove_subspan_headers():
+    """ Removes the headers for a sub-span.
+    You should call this in e.g. a finally block when you have finished making a downstream service call.
+    For the specification, see: https://github.com/openzipkin/b3-propagation
+    """
+    g.pop("subspan", None)
 
 
 def _generate_identifier():

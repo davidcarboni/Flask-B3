@@ -55,10 +55,20 @@ this gets you a dict with keys that match the B3 header names
 
 If your service needs to call other services, 
 you'll need to add B3 headers to the outgoing request.
+Once this is done, you'll get subspan IDs returned from values() (e.g. for logging) 
+until you remove the subspan.
 Pass in a dict of your headers to be updated with B3 headers.
-This will generate the right B3 values for a new span in the trace:
+This will generate the right B3 values for a sub-span in the trace:
 
-    add_outgoing_headers(headers)
+    add_substpan_headers(headers)
+    try:
+    
+        ... log.debug("Client start: calling downstream service")
+        ... requests.get(<downstream service>, headers=headers)
+        ... log.debug("Client receive: downstream service responded")
+        
+    finally:
+        remove_subspan_headers()
 
 And that's it. The aim is to make it clean and simple to read and propagate B3 headers.
 
