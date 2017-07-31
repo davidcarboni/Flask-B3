@@ -85,7 +85,7 @@ def collect_incoming_headers(request_headers=None):
     _log.debug("Resolved B3 values: {values}".format(values=values()))
 
 
-def end_span():
+def end_span(response):
     """Logs the end of a span.
     This function can be passed to Flask.after_request() if you'd like a log message to confirm the end of a span.
     """
@@ -96,6 +96,7 @@ def end_span():
             trace=span.get(b3_trace_id),
             parent=span.get(b3_parent_span_id),
     ))
+    return response
 
 
 def add_subspan_headers(headers):
