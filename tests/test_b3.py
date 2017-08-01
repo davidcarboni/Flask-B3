@@ -1,8 +1,8 @@
 import unittest
 import re
 from flask import Flask
-from flaskb3 import b3
-from flaskb3.b3 import b3_trace_id, b3_parent_span_id, b3_span_id, b3_sampled,b3_flags
+import b3
+from b3 import b3_trace_id, b3_parent_span_id, b3_span_id, b3_sampled,b3_flags
 
 
 class TestB3(unittest.TestCase):
