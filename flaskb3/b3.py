@@ -18,7 +18,8 @@ b3_headers = [b3_trace_id, b3_parent_span_id, b3_span_id, b3_sampled, b3_flags]
 def values():
     """Get the full set of B3 values.
     :return: A dict containing the keys "X-B3-TraceId", "X-B3-ParentSpanId", "X-B3-SpanId", "X-B3-Sampled" and
-    "X-B3-Flags" for the current span. NB some of the values are likely be None.
+    "X-B3-Flags" for the current span or subspan. NB some of the values are likely be None,
+    but all keys will be present.
     """
     result = {}
     try:
@@ -36,8 +37,8 @@ def values():
     return result
 
 
-def collect_incoming_headers(request_headers=None):
-    """Collects B3 headers and sets up values for this request as needed.
+def start_span(request_headers=None):
+    """Collects incoming B3 headers and sets up values for this request as needed.
     The collected/computed values are stored on the application context g using the defined http header names as keys.
     :param request_headers: Incoming request headers can be passed explicitly.
     If not passed, Flask request.headers will be used. This enables you to pass this function to Flask.before_request().
@@ -73,39 +74,47 @@ def collect_incoming_headers(request_headers=None):
     # We'll set it to "1" if debug=True, otherwise we'll propagate it if present.
     setattr(g, b3_flags, "1" if debug else flags)
 
+    _info("Server receive. Starting span" if trace_id else "Root span")
     _log.debug("Incoming headers: " + str(headers))
-    if not trace_id:
-        _log.info("Root span")
-    else:
-        _log.info("Server receive: span {span} in trace {trace}. Parent span is {parent}.".format(
-            span=span_id,
-            trace=trace_id,
-            parent=parent_span_id,
-        ))
     _log.debug("Resolved B3 values: {values}".format(values=values()))
 
 
-def end_span(response):
+def end_span(response=None):
     """Logs the end of a span.
     This function can be passed to Flask.after_request() if you'd like a log message to confirm the end of a span.
+    :param response: If this furction is passed to Flask.after_request(), this will be passed by the framework.
+    :return: the response parameter is returned as passed.
     """
-    remove_subspan_headers()
-    span = values()
-    _log.info("Server send: span {span} in trace {trace}. Parent span is {parent}.".format(
-            span=span.get(b3_span_id),
-            trace=span.get(b3_trace_id),
-            parent=span.get(b3_parent_span_id),
-    ))
+    end_subspan()
+    _info("Server send. Closing span")
     return response
 
 
-def add_subspan_headers(headers):
-    """ Adds the required sub-span headers to the given header dict.
-    This is used when making a downstream service call.
+def start_subspan():
+    """ Sets up a new span to contact a downstream service.
+    This is used when making a downstream service call. It returns a dict containing the required sub-span headers.
+    Each downstream call you make is handled as a new span, so call this every time you need to contact another service.
+
+    This temporarily updates what's returned by values() to match the sub-span, so it can can also be used when calling
+    e.g. a database that doesn't support B3. You'll still be able to record the client side of an interaction,
+    even if the downstream server doesn't use the propagated trace information.
+
+    You'll need to call end_subspan when you're done:
+
+        start_subspan(headers)
+        try:
+
+            ... log.debug("Client start: calling downstream service")
+            ... requests.get(<downstream service>, headers=headers)
+            ... log.debug("Client receive: downstream service responded")
+
+        finally:
+            end_subspan()
+
     For the specification, see: https://github.com/openzipkin/b3-propagation
     :param headers: The headers dict. Headers will be added to this as needed.
-    :return: For convenience, the headers parameter is returned after being updated.
-    This allows you to pass the result of this function directly to e.g. requests.get(...).
+    :return: A dict containing header values for a downstream request.
+    This can be passed directly to e.g. requests.get(...).
     """
     b3 = values()
     g.subspan = {
@@ -123,13 +132,12 @@ def add_subspan_headers(headers):
         b3_flags: b3[b3_flags],
     }
 
-    _log.debug("B3 values for outgoing headers: {b3_headers}".format(
-        b3_headers=g.subspan))
-
-    # Update headers
-    headers[b3_trace_id] = g.subspan[b3_trace_id]
-    headers[b3_span_id] = g.subspan[b3_span_id]
-    headers[b3_parent_span_id] = g.subspan[b3_parent_span_id]
+    # Set up headers
+    headers = {
+        b3_trace_id: g.subspan[b3_trace_id],
+        b3_span_id: g.subspan[b3_span_id],
+        b3_parent_span_id: g.subspan[b3_parent_span_id],
+    }
 
     # Propagate only if set:
     if g.subspan[b3_sampled]:
@@ -137,17 +145,22 @@ def add_subspan_headers(headers):
     if g.subspan[b3_flags]:
         headers[b3_flags] = g.subspan[b3_flags]
 
+    _info("Client start. Starting sub-span")
+    _log.debug("B3 values for sub-span: {b3_headers}".format(b3_headers=values()))
+    _log.debug("B3 headers for downstream request: {b3_headers}".format(b3_headers=headers))
+
     return headers
 
 
-def remove_subspan_headers():
+def end_subspan():
     """ Removes the headers for a sub-span.
     You should call this in e.g. a finally block when you have finished making a downstream service call.
     For the specification, see: https://github.com/openzipkin/b3-propagation
     """
     try:
-        if g.pop("subspan", None):
-            _log.info("Returned to span: " + str(values()))
+        if g.get("subspan"):
+            _info("Client receive. Closing sub-span")
+            g.pop("subspan", None)
     except RuntimeError:
         # We're probably working outside the Application Context at this point, likely on startup:
         # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
@@ -163,3 +176,14 @@ def _generate_identifier():
     byte_length = int(bit_length / 8)
     identifier = os.urandom(byte_length)
     return hexlify(identifier).decode('ascii')
+
+
+def _info(message):
+    """Convenience function to log current span values.
+    """
+    span = values()
+    _log.info(message + ": {span} in trace {trace}. (Parent span: {parent}).".format(
+        span=span.get(b3_span_id),
+        trace=span.get(b3_trace_id),
+        parent=span.get(b3_parent_span_id),
+    ))

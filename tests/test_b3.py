@@ -11,13 +11,13 @@ class TestB3(unittest.TestCase):
 
     def tearDown(self):
         b3.debug = False
-        b3.remove_subspan_headers()
+        b3.end_subspan()
 
     def test_should_generate_root_span_ids(self):
         with self.app.app_context():
             # Given
             # No B3 headers - this is the root span
-            b3.collect_incoming_headers({})
+            b3.start_span({})
 
             # When
             # We get the B3 values
@@ -36,13 +36,12 @@ class TestB3(unittest.TestCase):
             # Given
             # A trace ID in the B3 headers
             trace_id = "Barbapapa"
-            b3.collect_incoming_headers({b3_trace_id: trace_id})
+            b3.start_span({b3_trace_id: trace_id})
 
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # The incoming trace ID should be maintained
@@ -54,12 +53,11 @@ class TestB3(unittest.TestCase):
             # Given
             # A trace ID in the B3 headers
             span_id = "Barbabright"
-            b3.collect_incoming_headers({b3_span_id: span_id})
+            b3.start_span({b3_span_id: span_id})
 
             # When
             # We update onward request headers
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # The incoming trace ID should be propagated
@@ -70,12 +68,11 @@ class TestB3(unittest.TestCase):
             # Given
             # A trace ID in the B3 headers
             span_id = "Barbazoo"
-            b3.collect_incoming_headers({b3_span_id: span_id})
+            b3.start_span({b3_span_id: span_id})
 
             # When
             # We update onward request headers
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # The incoming trace ID should be propagated
@@ -87,13 +84,12 @@ class TestB3(unittest.TestCase):
         with self.app.app_context():
             # Given
             # Sampled is not set in the request headers
-            b3.collect_incoming_headers({})
+            b3.start_span({})
 
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # Sampled should not be set and should
@@ -106,13 +102,12 @@ class TestB3(unittest.TestCase):
             # Given
             # Sampled is not set in the request headers
             sampled = '0'
-            b3.collect_incoming_headers({b3_sampled: sampled})
+            b3.start_span({b3_sampled: sampled})
 
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # The Sampled value should be maintained
@@ -124,13 +119,12 @@ class TestB3(unittest.TestCase):
             # Given
             # Flags is set in the B3 headers
             flags = '1'
-            b3.collect_incoming_headers({b3_flags: flags})
+            b3.start_span({b3_flags: flags})
 
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # Flags should be set to 1 to indicate debug
@@ -142,29 +136,28 @@ class TestB3(unittest.TestCase):
             # Given
             # We have set debug on
             b3.debug = True
-            b3.collect_incoming_headers({})
+            b3.start_span({})
 
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = {}
-            b3.add_subspan_headers(headers)
+            headers = b3.start_subspan()
 
             # Then
             # Flags should be set to 1 to indicate debug
             self.assertEqual("1", values[b3_flags])
             self.assertEqual("1", headers[b3_flags])
 
-    def test_should_layer_subspan(self):
+    def test_should_update_on_subspan_start(self):
         with self.app.app_context():
             # Given
             # We have a full set of span values
-            b3.collect_incoming_headers({b3_sampled: "1", b3_flags: "1"})
+            b3.start_span({b3_sampled: "1", b3_flags: "1"})
 
             # When
             # We start a subspan
             span = b3.values()
-            b3.add_subspan_headers({})
+            b3.start_subspan()
 
             # Then
             # Values should now reflect the sub-span
@@ -174,6 +167,27 @@ class TestB3(unittest.TestCase):
             self.assertNotEqual(span[b3_span_id], subspan[b3_span_id])
             self.assertEqual(span[b3_sampled], subspan[b3_sampled])
             self.assertEqual(span[b3_flags], subspan[b3_flags])
+
+    def test_should_revert_on_subspan_end(self):
+        with self.app.app_context():
+            # Given
+            # We have a full set of span values and a subspan
+            b3.start_span({b3_sampled: "1", b3_flags: "1"})
+            span = b3.values()
+            b3.start_subspan()
+
+            # When
+            # We end the subspan
+            b3.end_subspan()
+
+            # Then
+            # Values should now reflect the sub-span
+            reverted = b3.values()
+            self.assertEqual(span[b3_trace_id], reverted[b3_trace_id])
+            self.assertEqual(span[b3_parent_span_id], reverted[b3_parent_span_id])
+            self.assertEqual(span[b3_span_id], reverted[b3_span_id])
+            self.assertEqual(span[b3_sampled], reverted[b3_sampled])
+            self.assertEqual(span[b3_flags], reverted[b3_flags])
 
 
 if __name__ == '__main__':
