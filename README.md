@@ -2,6 +2,8 @@
 
 Implements B3 propagation for Python/Flask.
 
+Does not implement communication with a Zipkin server.
+
 ## B3
 
 B3 is used by [Zipkin](http://zipkin.io/) for building distributed trace trees.
