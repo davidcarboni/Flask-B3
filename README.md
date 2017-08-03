@@ -58,7 +58,7 @@ This will generate any needed identifiers
     start_span()
     
 If you want the end of a span to be logged ("Server Send")
-you can call the following (or pass it directly to Flask.after_request):
+you can call the following (or pass it directly to `Flask.after_request)`:
     
     end_span()
 
