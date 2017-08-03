@@ -32,7 +32,7 @@ I want to be able to correlate logs across multiple services and
 I don't need the full power of Zipkin at this stage.
 This provides a relatively low-impact first-step on the distributed tracing journey.
 
-B3 values are made available and headers can be generated for onward requests.
+Incoming B3 values are made available and B3 headers can be generated for onward requests.
 
 
 ## Usage
