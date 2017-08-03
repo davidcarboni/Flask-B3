@@ -45,7 +45,13 @@ def start_span(request_headers=None):
     :param headers: The request headers dict
     """
     global debug
-    headers = request_headers if request_headers is not None else request.headers
+    try:
+        headers = request_headers if request_headers else request.headers
+    except RuntimeError:
+        # We're probably working outside the Application Context at this point, likely on startup:
+        # https://stackoverflow.com/questions/31444036/runtimeerror-working-outside-of-application-context
+        # We return a dict of empty values so the expected keys are present.
+        headers = {}
 
     trace_id = headers.get(b3_trace_id)
     parent_span_id = headers.get(b3_parent_span_id)
