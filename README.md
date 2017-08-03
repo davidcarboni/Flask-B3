@@ -69,7 +69,7 @@ you'll need to add B3 headers to the outgoing request.
 This is done by starting a new sub-span.
 Once this is done, you'll get subspan IDs returned from `values()`
 (e.g. for logging) until you end the subspan.
-This will setu the right B3 values for a sub-span in the trace
+This will set up the right B3 values for a sub-span in the trace
 and return a dict containing the headers you'll need for your service call:
 
     b3_headers = start_subspan()
@@ -87,7 +87,7 @@ and return a dict containing the headers you'll need for your service call:
 
 When you need to work with tracing information, for example to build log messages, 
 this gets you a dict with keys that match the B3 header names 
-(`X-B3-TraceId`, `X-B3-ParentSpanId`, `X-B3-SpanId`, `X-B3-Sampled` and `X-B3-Flags`): 
+(`X-B3-TraceId`, `X-B3-ParentSpanId`, `X-B3-SpanId`, `X-B3-Sampled` and `X-B3-Flags`) for the current span (or subspan if you've started one): 
 
     values()
     
@@ -96,5 +96,5 @@ this gets you a dict with keys that match the B3 header names
 
 Surely it's more complicated, needs configuration, or does this and that else?
 
-No. that's all. 
+No. That's all. 
 
