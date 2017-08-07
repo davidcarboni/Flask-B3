@@ -1,26 +1,13 @@
 import os
-import sys
 from threading import current_thread
 import logging
 from logging import Formatter
+from flask import current_app
 import b3
 
 _log_format = '%(asctime)s %(levelname_spring)+5s %(tracing_information)s' \
               '%(process_id)s --- [%(thread_name)+15s] %(logger_name)-40s : %(message)s'
 _python_record_factory = None
-_app_name = sys.argv[0]
-
-
-def init(app, level=None):
-    """Initialises logging.
-
-     This sets the name of the app and, if `level` is passed in,
-     Sets the logging level of the root logger.
-     """
-    global _app_name
-    _app_name = app.name
-    if level:
-        logging.getLogger().setLevel(level)
 
 
 def _python3_record_factory(*args, **kwargs):
@@ -90,7 +77,7 @@ def _tracing_information():
         # exported = "true" if values[b3.b3_sampled] == '1' or values[b3.b3_flags] == '1' else "false"
 
         return [
-            _app_name if _app_name else " - ",
+            current_app.name if current_app.name else " - ",
             values[b3.b3_trace_id],
             values[b3.b3_span_id],
             "false",

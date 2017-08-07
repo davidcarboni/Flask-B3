@@ -11,7 +11,7 @@ app.before_request(b3.start_span)
 app.after_request(b3.end_span)
 
 # Set up logging to display trace information
-logging_standard.init(app, level=logging.DEBUG)
+logging.getLogger().setLevel(logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
