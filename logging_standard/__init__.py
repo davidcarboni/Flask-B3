@@ -1,4 +1,5 @@
 import os
+import sys
 from threading import current_thread
 import logging
 from logging import Formatter
@@ -6,42 +7,62 @@ import b3
 
 _log_format = '%(asctime)s %(levelname_spring)+5s %(tracing_information)s' \
               '%(process_id)s --- [%(thread_name)+15s] %(logger_name)-40s : %(message)s'
-_app_name = None
 _python_record_factory = None
+_app_name = sys.argv[0]
 
 
 def init(app, level=None):
-    """Initialises logging with the name of the app and wraps the existing record factory."""
-    global _python_record_factory
+    """Initialises logging.
 
+     This sets the name of the app and, if `level` is passed in,
+     Sets the logging level of the root logger.
+     """
     global _app_name
     _app_name = app.name
-
-    # Set up the log format
-    logging.basicConfig(format=_log_format, level=level)
-
-    if hasattr(logging, "getLogRecordFactory"):
-        # Python 3
-        # getLogRecordFactory was introduced in Python 3
-        _python_record_factory = logging.getLogRecordFactory()
-        logging.setLogRecordFactory(_python3_record_factory)
-    else:
-        # Python 2 fallback
-        # # set the formatter for all handlers on the root logger.
-        for handler in logging.getLogger().handlers:
-            handler.setFormatter(Python2Formatter())
+    if level:
+        logging.getLogger().setLevel(level)
 
 
 def _python3_record_factory(*args, **kwargs):
-    """Collates values needed by LOG_FORMAT to implement the logging standard.
+    """Python 3 approach to custom logging, using `logging.getLogRecord(...)`
+
+    Inspireb by: https://docs.python.org/3/howto/logging-cookbook.html#customizing-logrecord
+
+    :return: A log record augmented with the values required by LOG_FORMAT, as per `_update_record(...)`
+    """
+    record = _python_record_factory(*args, **kwargs)
+    _update_record(record)
+    return record
+
+
+class Python2Formatter(Formatter):
+    """ Python 2 approach to custom logging, using `logging.getLogRecord(...)`
+
+    Inspired by: http://masnun.com/2015/11/04/python-writing-custom-log-handler-and-formatter.html
+
+    Formats a log record with the values required by LOG_FORMAT, as added by `_update_record(...)`
+    """
+
+    def __init__(self):
+        super(self.__class__, self).__init__(fmt=_log_format)
+
+    def format(self, record):
+        _update_record(record)
+        return super(self.__class__, self).format(record)
+
+
+def _update_record(record):
+    """Collates values needed by LOG_FORMAT
+
+    This adds additional information to the log record to implement the logging standard.
 
     :return: A log record augmented with the values required by LOG_FORMAT:
+     * levelname_spring: specifically, "WARN" instead of "WARNING"
      * process_id
      * thread_name
      * logger_name
-     * tracing_information (if B3 values have not been collected this will be an empty string)
+     * tracing_information: if B3 values have not been collected this will be an empty string
     """
-    record = _python_record_factory(*args, **kwargs)
 
     # Standard fields
     record.levelname_spring = "WARN" if record.levelname == "WARNING" else record.levelname
@@ -55,31 +76,11 @@ def _python3_record_factory(*args, **kwargs):
     if tracing_information:
         record.tracing_information = "[" + ",".join(tracing_information) + "] "
 
-    return record
-
-
-class Python2Formatter(Formatter):
-    def __init__(self):
-        super(self.__class__, self).__init__(fmt=_log_format)
-
-    def format(self, record):
-        # Standard fields
-        record.levelname_spring = "WARN" if record.levelname == "WARNING" else record.levelname
-        record.process_id = str(os.getpid())
-        record.thread_name = (current_thread().getName())[:15]
-        record.logger_name = record.name[:40]
-        record.tracing_information = ""
-
-        # Optional distributed tracing information
-        tracing_information = _tracing_information()
-        if tracing_information:
-            record.tracing_information = "[" + ",".join(tracing_information) + "] "
-
-        return super(self.__class__, self).format(record)
-
 
 def _tracing_information():
-    """Gets B3 distributed tracing information, if available, in Spring Cloud Sleuth compatible format."""
+    """Gets B3 distributed tracing information, if available.
+     This is returned as a list, ready to be formatted into Spring Cloud Sleuth compatible format.
+     """
 
     # We'll collate trace information if the B3 headers have been collected:
     values = b3.values()
@@ -94,3 +95,18 @@ def _tracing_information():
             values[b3.b3_span_id],
             "false",
         ]
+
+
+# Set up the log format
+logging.basicConfig(format=_log_format)
+
+if hasattr(logging, "getLogRecordFactory"):
+    # Python 3 solution
+    # getLogRecordFactory was introduced in Python 3
+    _python_record_factory = logging.getLogRecordFactory()
+    logging.setLogRecordFactory(_python3_record_factory)
+else:
+    # Python 2 fallback
+    # # set the formatter for all handlers on the root logger.
+    for handler in logging.getLogger().handlers:
+        handler.setFormatter(Python2Formatter())
