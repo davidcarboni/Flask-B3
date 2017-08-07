@@ -1,7 +1,7 @@
 from flask import Flask
 import logging
 import logging_standard
-from flaskb3 import b3
+import b3
 
 
 app = Flask("test")
