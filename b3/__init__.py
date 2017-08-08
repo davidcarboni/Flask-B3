@@ -96,7 +96,7 @@ def end_span(response=None):
     return response
 
 
-def start_subspan():
+def start_subspan(headers=None):
     """ Sets up a new span to contact a downstream service.
     This is used when making a downstream service call. It returns a dict containing the required sub-span headers.
     Each downstream call you make is handled as a new span, so call this every time you need to contact another service.
@@ -107,7 +107,7 @@ def start_subspan():
 
     You'll need to call end_subspan when you're done:
 
-        start_subspan(headers)
+        [headers =] start_subspan([headers])
         try:
 
             ... log.debug("Client start: calling downstream service")
@@ -139,23 +139,25 @@ def start_subspan():
     }
 
     # Set up headers
-    headers = {
+    # NB dict() ensures we don't alter the value passed in. Maybe that's too conservative?
+    result = dict(headers or {})
+    result.update({
         b3_trace_id: g.subspan[b3_trace_id],
         b3_span_id: g.subspan[b3_span_id],
         b3_parent_span_id: g.subspan[b3_parent_span_id],
-    }
+    })
 
     # Propagate only if set:
     if g.subspan[b3_sampled]:
-        headers[b3_sampled] = g.subspan[b3_sampled]
+        result[b3_sampled] = g.subspan[b3_sampled]
     if g.subspan[b3_flags]:
-        headers[b3_flags] = g.subspan[b3_flags]
+        result[b3_flags] = g.subspan[b3_flags]
 
     _info("Client start. Starting sub-span")
     _log.debug("B3 values for sub-span: {b3_headers}".format(b3_headers=values()))
-    _log.debug("B3 headers for downstream request: {b3_headers}".format(b3_headers=headers))
+    _log.debug("All headers for downstream request: {b3_headers}".format(b3_headers=result))
 
-    return headers
+    return result
 
 
 def end_subspan():

@@ -148,7 +148,7 @@ class TestB3(unittest.TestCase):
             self.assertEqual("1", values[b3_flags])
             self.assertEqual("1", headers[b3_flags])
 
-    def test_should_update_on_subspan_start(self):
+    def test_should_update_span_info_on_subspan_start(self):
         with self.app.app_context():
             # Given
             # We have a full set of span values
@@ -168,7 +168,7 @@ class TestB3(unittest.TestCase):
             self.assertEqual(span[b3_sampled], subspan[b3_sampled])
             self.assertEqual(span[b3_flags], subspan[b3_flags])
 
-    def test_should_revert_on_subspan_end(self):
+    def test_should_revert_span_info_on_subspan_end(self):
         with self.app.app_context():
             # Given
             # We have a full set of span values and a subspan
@@ -188,6 +188,21 @@ class TestB3(unittest.TestCase):
             self.assertEqual(span[b3_span_id], reverted[b3_span_id])
             self.assertEqual(span[b3_sampled], reverted[b3_sampled])
             self.assertEqual(span[b3_flags], reverted[b3_flags])
+
+    def test_should_update_headers_if_passed(self):
+        with self.app.app_context():
+            # Given
+            # We have some existing headers
+            headers_original = {'Barbabeau': 'Barbalala'}
+
+            # When
+            # We update the headers
+            headers_updated = b3.start_subspan(headers_original)
+
+            # Then
+            # headers should still contain the original header values
+            # https://stackoverflow.com/questions/9323749/python-check-if-one-dictionary-is-a-subset-of-another-larger-dictionary
+            self.assertTrue(set(headers_updated).issuperset(set(headers_original)))
 
 
 if __name__ == '__main__':
