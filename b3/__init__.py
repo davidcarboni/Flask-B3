@@ -81,7 +81,6 @@ def start_span(request_headers=None):
     setattr(g, b3_flags, "1" if debug else flags)
 
     _info("Server receive. Starting span" if trace_id else "Root span")
-    _log.debug("Incoming headers: " + str(headers))
     _log.debug("Resolved B3 values: {values}".format(values=values()))
 
 
