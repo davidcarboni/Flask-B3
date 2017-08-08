@@ -107,11 +107,11 @@ def start_subspan(headers=None):
 
     You'll need to call end_subspan when you're done:
 
-        [headers =] start_subspan([headers])
+        headers_b3 = start_subspan([headers])
         try:
 
             ... log.debug("Client start: calling downstream service")
-            ... requests.get(<downstream service>, headers=headers)
+            ... requests.get(<downstream service>, headers=headers_b3)
             ... log.debug("Client receive: downstream service responded")
 
         finally:
