@@ -1,6 +1,6 @@
 from flask import Flask
 import logging
-import flask_sleuth
+import sleuth
 import b3
 
 

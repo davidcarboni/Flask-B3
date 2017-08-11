@@ -11,7 +11,7 @@ class TestB3(unittest.TestCase):
 
     def tearDown(self):
         b3.debug = False
-        b3.end_subspan()
+        b3._end_subspan()
 
     def test_should_generate_root_span_ids(self):
         with self.app.app_context():
@@ -41,7 +41,7 @@ class TestB3(unittest.TestCase):
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # The incoming trace ID should be maintained
@@ -57,7 +57,7 @@ class TestB3(unittest.TestCase):
 
             # When
             # We update onward request headers
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # The incoming trace ID should be propagated
@@ -72,7 +72,7 @@ class TestB3(unittest.TestCase):
 
             # When
             # We update onward request headers
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # The incoming trace ID should be propagated
@@ -89,7 +89,7 @@ class TestB3(unittest.TestCase):
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # Sampled should not be set and should
@@ -107,7 +107,7 @@ class TestB3(unittest.TestCase):
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # The Sampled value should be maintained
@@ -124,7 +124,7 @@ class TestB3(unittest.TestCase):
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # Flags should be set to 1 to indicate debug
@@ -141,7 +141,7 @@ class TestB3(unittest.TestCase):
             # When
             # We get b3 values and update onward request headers
             values = b3.values()
-            headers = b3.start_subspan()
+            headers = b3._start_subspan()
 
             # Then
             # Flags should be set to 1 to indicate debug
@@ -157,7 +157,7 @@ class TestB3(unittest.TestCase):
             # When
             # We start a subspan
             span = b3.values()
-            b3.start_subspan()
+            b3._start_subspan()
 
             # Then
             # Values should now reflect the sub-span
@@ -174,11 +174,11 @@ class TestB3(unittest.TestCase):
             # We have a full set of span values and a subspan
             b3.start_span({b3_sampled: "1", b3_flags: "1"})
             span = b3.values()
-            b3.start_subspan()
+            b3._start_subspan()
 
             # When
             # We end the subspan
-            b3.end_subspan()
+            b3._end_subspan()
 
             # Then
             # Values should now reflect the sub-span
@@ -197,7 +197,7 @@ class TestB3(unittest.TestCase):
 
             # When
             # We update the headers
-            headers_updated = b3.start_subspan(headers_original)
+            headers_updated = b3._start_subspan(headers_original)
 
             # Then
             # headers should still contain the original header values
