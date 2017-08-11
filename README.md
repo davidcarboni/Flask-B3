@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/davidcarboni/flask_b3.svg?branch=master)](https://travis-ci.org/davidcarboni/flask_b3)
+
 # Flask B3
 
 Implements B3 propagation for Python/Flask.
