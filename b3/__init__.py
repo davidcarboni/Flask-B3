@@ -115,7 +115,7 @@ def end_span(response=None):
     :param response: If this furction is passed to Flask.after_request(), this will be passed by the framework.
     :return: the response parameter is returned as passed.
     """
-    end_subspan()
+    _end_subspan()
     _info("Server send. Closing span")
     return response
 
