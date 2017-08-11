@@ -17,14 +17,11 @@ log = logging.getLogger(__name__)
 
 @app.route("/")
 def home():
-    log.info("Working")
+    log.info("Starting")
 
-    b3.start_subspan()
-    try:
+    with b3.SubSpan() as headers:
         # Pretend to call a downstream service in the sub-span
-        log.info("Calling downstream...")
-    finally:
-        b3.end_subspan()
+        log.info("Calling downstream with headers: {}".format(headers))
 
     log.info("Finishing")
 

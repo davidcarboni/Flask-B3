@@ -15,6 +15,31 @@ b3_flags = 'X-B3-Flags'
 b3_headers = [b3_trace_id, b3_parent_span_id, b3_span_id, b3_sampled, b3_flags]
 
 
+class SubSpan:
+    """Sub span context manager
+
+    Use a `with...` block when making downstream calls to other services
+    in order to propagate trace and span IDs.
+    The `__enter__` function returns the necessary headers
+    (you can optionally pass in existing headers to be updated).
+    Calls to `values()` whilst in the block will return the subspan IDs:
+
+        with SubSpan([headers]) as headers_b3:
+            ... log.debug("Client start: calling downstream service")
+            ... requests.get(<downstream service>, headers=headers_b3)
+            ... log.debug("Client receive: downstream service responded")
+
+    """
+    def __init__(self, headers=None):
+        self.headers = headers
+
+    def __enter__(self):
+        return _start_subspan(self.headers)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _end_subspan()
+
+
 def values():
     """Get the full set of B3 values.
     :return: A dict containing the keys "X-B3-TraceId", "X-B3-ParentSpanId", "X-B3-SpanId", "X-B3-Sampled" and
@@ -95,7 +120,7 @@ def end_span(response=None):
     return response
 
 
-def start_subspan(headers=None):
+def _start_subspan(headers=None):
     """ Sets up a new span to contact a downstream service.
     This is used when making a downstream service call. It returns a dict containing the required sub-span headers.
     Each downstream call you make is handled as a new span, so call this every time you need to contact another service.
@@ -104,17 +129,12 @@ def start_subspan(headers=None):
     e.g. a database that doesn't support B3. You'll still be able to record the client side of an interaction,
     even if the downstream server doesn't use the propagated trace information.
 
-    You'll need to call end_subspan when you're done:
+    You'll need to call end_subspan when you're done. You can do this using the `SubSpan` class:
 
-        headers_b3 = start_subspan([headers])
-        try:
-
+        with SubSpan([headers]) as headers_b3:
             ... log.debug("Client start: calling downstream service")
             ... requests.get(<downstream service>, headers=headers_b3)
             ... log.debug("Client receive: downstream service responded")
-
-        finally:
-            end_subspan()
 
     For the specification, see: https://github.com/openzipkin/b3-propagation
     :param headers: The headers dict. Headers will be added to this as needed.
@@ -159,7 +179,7 @@ def start_subspan(headers=None):
     return result
 
 
-def end_subspan():
+def _end_subspan():
     """ Removes the headers for a sub-span.
     You should call this in e.g. a finally block when you have finished making a downstream service call.
     For the specification, see: https://github.com/openzipkin/b3-propagation

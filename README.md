@@ -68,21 +68,16 @@ you can call the following (or pass it directly to `Flask.after_request)`:
 
 If your service needs to call other services, 
 you'll need to add B3 headers to the outgoing request.
-This is done by starting a new sub-span.
+This is done by starting a new sub-span, optionally passing in headers to be updated.
 Once this is done, you'll get subspan IDs returned from `values()`
 (e.g. for logging) until you end the subspan.
 This will set up the right B3 values for a sub-span in the trace
 and return a dict containing the headers you'll need for your service call:
 
-    b3_headers = start_subspan()
-    try:
-    
+    with SubSpan([headers]) as b3_headers:
         ... log.debug("Calling downstream service...")
         ... r = requests.get(<downstream service>, headers=b3_headers)
         ... log.debug("Downstream service responded...")
-        
-    finally:
-        end_subspan()
     
 
 ### Access B3 values 
