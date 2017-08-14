@@ -2,11 +2,6 @@ from setuptools import setup, find_packages
 import unittest
 
 
-def readme():
-    with open('README.md') as f:
-        return f.read()
-
-
 def test_suite():
     loader = unittest.TestLoader()
     suite = loader.discover('tests', pattern='test_*.py')
@@ -14,9 +9,8 @@ def test_suite():
 
 
 setup(name='Flask-B3',
-      version='0.0.1',
+      version='0.0.3',
       description='B3 header access and propagation for Flask.',
-      long_description=readme(),
       author='David Carboni',
       author_email='david@carboni.io',
       classifiers=[
