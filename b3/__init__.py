@@ -1,3 +1,5 @@
+from functools import wraps
+
 from flask import g, request
 from binascii import hexlify
 import os
@@ -15,36 +17,11 @@ b3_flags = 'X-B3-Flags'
 b3_headers = [b3_trace_id, b3_parent_span_id, b3_span_id, b3_sampled, b3_flags]
 
 
-class SubSpan:
-    """Sub span context manager
-
-    Use a `with...` block when making downstream calls to other services
-    in order to propagate trace and span IDs.
-    The `__enter__` function returns the necessary headers
-    (you can optionally pass in existing headers to be updated).
-    Calls to `values()` whilst in the block will return the subspan IDs:
-
-        with SubSpan([headers]) as headers_b3:
-            ... log.debug("Client start: calling downstream service")
-            ... requests.get(<downstream service>, headers=headers_b3)
-            ... log.debug("Client receive: downstream service responded")
-
-    """
-    def __init__(self, headers=None):
-        self.headers = headers
-
-    def __enter__(self):
-        return _start_subspan(self.headers)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        _end_subspan()
-
-
 def values():
-    """Get the full set of B3 values.
+    """Get the full current set of B3 values.
     :return: A dict containing the keys "X-B3-TraceId", "X-B3-ParentSpanId", "X-B3-SpanId", "X-B3-Sampled" and
-    "X-B3-Flags" for the current span or subspan. NB some of the values are likely be None,
-    but all keys will be present.
+    "X-B3-Flags" for the current span or subspan. NB some of the values are likely be None, but
+    all keys will be present.
     """
     result = {}
     try:
@@ -67,7 +44,6 @@ def start_span(request_headers=None):
     The collected/computed values are stored on the application context g using the defined http header names as keys.
     :param request_headers: Incoming request headers can be passed explicitly.
     If not passed, Flask request.headers will be used. This enables you to pass this function to Flask.before_request().
-    :param headers: The request headers dict
     """
     global debug
     try:
@@ -118,6 +94,60 @@ def end_span(response=None):
     _end_subspan()
     _info("Server send. Closing span")
     return response
+
+
+def span(route):
+    """Optional decorator for Flask routes.
+
+    If you don't want to trace all routes using `Flask.before_request()' and 'Flask.after_request()'
+    you can use this decorator as an alternative way to handle incoming B3 headers:
+
+        @app.route('/instrumented')
+        @span
+        def instrumented():
+            ...
+            ...
+            ...
+
+    NB @span needs to come after (not before) @app.route.
+    """
+
+    @wraps(route)
+    def route_decorator(*args, **kwargs):
+        start_span()
+        try:
+            return route(*args, **kwargs)
+        finally:
+            end_span()
+
+    return route_decorator
+
+
+class SubSpan:
+    """Sub span context manager
+
+    Use a `with...` block when making downstream calls to other services
+    in order to propagate trace and span IDs.
+
+    The `__enter__` function returns the necessary headers
+    (you can optionally pass in existing headers to be updated).
+
+    Any calls to `values()` whilst in the block will return the subspan IDs:
+
+        with SubSpan([headers]) as headers_b3:
+            ... log.debug("Client start: calling downstream service")
+            ... requests.get(<downstream service>, headers=headers_b3)
+            ... log.debug("Client receive: downstream service responded")
+
+    """
+    def __init__(self, headers=None):
+        self.headers = headers
+
+    def __enter__(self):
+        return _start_subspan(self.headers)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _end_subspan()
 
 
 def _start_subspan(headers=None):
