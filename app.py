@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 import logging
 import b3
+from b3 import span
 
 
 app = Flask("test")
@@ -14,8 +15,7 @@ log = logging.getLogger(__name__)
 
 
 @app.route("/")
-def home():
-    print(logging.getLevelName(log.getEffectiveLevel()))
+def default():
     log.warning("Starting with b3 values: {}".format(b3.values()))
 
     with b3.SubSpan() as headers:
@@ -24,6 +24,13 @@ def home():
 
     log.warning("Finishing with b3 values: {}".format(b3.values()))
 
+    return jsonify(b3.values())
+
+
+@app.route("/using-decorator")
+@span
+def decorated():
+    log.warning("Using decorator: {}".format(b3.values()))
     return jsonify(b3.values())
 
 app.run(debug=True)
