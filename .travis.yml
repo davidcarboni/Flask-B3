@@ -5,6 +5,8 @@ python:
 script: pytest
 env:
 - PYTHONPATH=.
+before_deploy: "echo Deploying to Pypi.."
+after_deploy: "echo Deployed to Pypi."
 deploy:
   provider: pypi
   user: davidcarboni
