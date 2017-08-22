@@ -24,7 +24,7 @@ setup(name='Flask-B3',
           'License :: OSI Approved :: MIT License',
       ],
       keywords=['logging', 'b3', 'distributed', 'tracing', 'zipkin'],
-      url='https://github.com/davidcarboni/flask_b3',
+      url='https://github.com/rosgovuk/flask_b3',
       license='MIT',
       packages=find_packages(),
       install_requires=[
