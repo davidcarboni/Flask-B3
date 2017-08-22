@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/davidcarboni/flask_b3.svg?branch=master)](https://travis-ci.org/davidcarboni/flask_b3)
+[![Build Status](https://travis-ci.org/rosgovuk/Flask-B3.svg?branch=master)](https://travis-ci.org/rosgovuk/Flask-B3)
 
 # Flask B3
 
