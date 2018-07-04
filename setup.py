@@ -9,7 +9,7 @@ def test_suite():
 
 
 setup(name='Flask-B3',
-      version='0.0.4',
+      version='0.0.5',
       description='B3 header access and propagation for Flask.',
       author='David Carboni',
       author_email='david@carboni.io',

@@ -239,7 +239,7 @@ def _info(message):
     """Convenience function to log current span values.
     """
     span = values()
-    _log.info(message + ": {span} in trace {trace}. (Parent span: {parent}).".format(
+    _log.debug(message + ": {span} in trace {trace}. (Parent span: {parent}).".format(
         span=span.get(b3_span_id),
         trace=span.get(b3_trace_id),
         parent=span.get(b3_parent_span_id),

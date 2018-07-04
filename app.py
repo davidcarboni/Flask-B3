@@ -33,4 +33,5 @@ def decorated():
     log.warning("Using decorator: {}".format(b3.values()))
     return jsonify(b3.values())
 
+
 app.run(debug=True)
